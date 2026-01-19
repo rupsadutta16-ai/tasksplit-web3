@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
+import { EXPECTED_CHAIN_ID } from "../utils/contract";
 
 const ARB_SEPOLIA = {
   chainId: "0x66eee", // 421614
@@ -11,6 +12,17 @@ const ARB_SEPOLIA = {
     decimals: 18,
   },
   blockExplorerUrls: ["https://sepolia.arbiscan.io"],
+};
+
+const LOCALHOST = {
+  chainId: "0x7a69", // 31337
+  chainName: "Hardhat Localhost",
+  rpcUrls: ["http://127.0.0.1:8545"],
+  nativeCurrency: {
+    name: "ETH",
+    symbol: "ETH",
+    decimals: 18,
+  },
 };
 
 export default function WalletConnect({ setSigner, setAddress }) {
@@ -26,17 +38,19 @@ export default function WalletConnect({ setSigner, setAddress }) {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const network = await provider.getNetwork();
 
-      if (network.chainId !== 421614n) {
+      if (Number(network.chainId) !== EXPECTED_CHAIN_ID) {
         try {
+          const targetChainId = "0x" + EXPECTED_CHAIN_ID.toString(16);
           await window.ethereum.request({
             method: "wallet_switchEthereumChain",
-            params: [{ chainId: ARB_SEPOLIA.chainId }],
+            params: [{ chainId: targetChainId }],
           });
         } catch (switchErr) {
           if (switchErr.code === 4902) {
+            const config = EXPECTED_CHAIN_ID === 31337 ? LOCALHOST : ARB_SEPOLIA;
             await window.ethereum.request({
               method: "wallet_addEthereumChain",
-              params: [ARB_SEPOLIA],
+              params: [config],
             });
           } else {
             throw switchErr;
@@ -62,7 +76,6 @@ export default function WalletConnect({ setSigner, setAddress }) {
     if (!window.ethereum) return;
 
     try {
-      // Check if already connected
       const accounts = await window.ethereum.request({
         method: "eth_accounts",
       });
@@ -72,21 +85,23 @@ export default function WalletConnect({ setSigner, setAddress }) {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const network = await provider.getNetwork();
 
-      if (network.chainId !== 421614n) {
-        // Auto switch if wrong chain
+      if (Number(network.chainId) !== EXPECTED_CHAIN_ID) {
+        const targetChainId = "0x" + EXPECTED_CHAIN_ID.toString(16);
         await window.ethereum.request({
           method: "wallet_switchEthereumChain",
-          params: [{ chainId: ARB_SEPOLIA.chainId }],
+          params: [{ chainId: targetChainId }],
         });
       }
 
-      const signer = await provider.getSigner();
+      const refreshedProvider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await refreshedProvider.getSigner();
       const address = await signer.getAddress();
+      const finalNetwork = await refreshedProvider.getNetwork();
 
       setSigner(signer);
       setAddress(address);
       setConnectedAddr(address);
-      setChainId(Number(network.chainId));
+      setChainId(Number(finalNetwork.chainId));
     } catch (err) {
       console.error("Auto connect failed:", err);
     }

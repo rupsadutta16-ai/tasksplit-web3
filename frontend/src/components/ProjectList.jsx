@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ethers } from 'ethers';
-import { getContract } from '../utils/contract';
+import { getContract, EXPECTED_CHAIN_ID } from '../utils/contract';
 import { formatEth } from '../utils/format';
 
 export default function ProjectList({ signer }) {
@@ -22,7 +22,7 @@ export default function ProjectList({ signer }) {
         try {
             let provider;
 
-            
+
             if (signer && signer.provider) {
                 provider = signer.provider;
             } else if (window.ethereum) {
@@ -36,24 +36,24 @@ export default function ProjectList({ signer }) {
                 return;
             }
 
-            
+
             try {
                 const network = await provider.getNetwork();
-                
-                if (network.chainId.toString() !== "421614") {
-                    setError("Wrong Network. Please switch to Arbitrum Sepolia (Chain ID: 421614) in MetaMask.");
+
+                if (Number(network.chainId) !== EXPECTED_CHAIN_ID) {
+                    setError(`Wrong Network. Please switch to Chain ID: ${EXPECTED_CHAIN_ID} in MetaMask.`);
                     return;
                 }
             } catch (networkErr) {
                 console.error("Network check failed:", networkErr);
-                setError("Unable to verify network. Please ensure MetaMask is connected to Arbitrum Sepolia.");
+                setError("Unable to verify network. Please ensure MetaMask is correctly configured.");
                 return;
             }
 
-            
+
             const contract = await getContract(signer || provider);
 
-            
+
             let count;
             try {
                 const block = await provider.getBlock('latest');
@@ -68,10 +68,10 @@ export default function ProjectList({ signer }) {
             console.log("Project count:", count.toString());
             const loadedProjects = [];
 
-            
+
             for (let i = 1; i < Number(count); i++) {
                 try {
-                    
+
                     const p = await contract.getProject(i);
                     loadedProjects.push({
                         id: i,
